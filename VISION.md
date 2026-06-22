@@ -25,10 +25,18 @@ La musique = un **alignement de couches** qui forment des **séquences**
 
 ## Principes
 1. **Simple d'abord** : tout ce qui transforme l'outil en DAW intimidant est repoussé.
-2. **Tout est éditable** : l'IA propose, l'humain dispose.
-3. **Le schéma JSON d'arrangement est le contrat central** : moteur audio, UI et IA
-   s'y branchent indépendamment.
-4. **Local d'abord** : usage personnel, données privées, zéro coût.
+2. **Éditer par l'intention, pas par la note** : l'utilisateur dit « plus sombre »,
+   « enlève la basse au break » — pas « transpose +2 ». Le MIDI/pattern est un
+   **format interne**, jamais l'interface du débutant (le piano-roll est un mode avancé).
+3. **L'émotion vient du son et de l'arrangement, pas des notes** : en techno, ~70-80 %
+   de l'émotion = sound design (sidechain, filtres, reverb) + courbe d'énergie + transitions.
+   Conséquence : **sample-based** dès le départ et schéma qui encode énergie/automation.
+4. **Le schéma JSON d'arrangement est le contrat central** : moteur audio, UI et IA
+   s'y branchent indépendamment. C'est la décision la plus coûteuse à corriger → on la soigne.
+5. **Player avant éditeur** : une boucle d'écoute existe dès le jour 1, sinon rien à juger.
+6. **Local d'abord** : usage personnel, données privées, zéro coût. La génération par
+   Claude Code est un *échafaudage* assumé, derrière une frontière `intention → JSON`
+   remplaçable (règles / Ollama / API) pour une future version publique.
 
 ## Décisions de cadrage (2026-06-22)
 | Sujet | Choix |
