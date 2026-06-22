@@ -23,6 +23,10 @@
     #play:hover { filter: brightness(1.08); }
     #play:active { transform: scale(.97); }
     #play.on { background: linear-gradient(135deg, #ff5c7c, #ff3c5a); }
+    button.secondary { cursor: pointer; border: 1px solid #2a2e40; border-radius: 999px; padding: 14px 20px;
+      font-size: 14px; font-weight: 600; color: var(--text); background: #1f2230; transition: filter .2s ease; }
+    button.secondary:hover { filter: brightness(1.15); }
+    button.secondary:disabled { opacity: .55; cursor: default; }
     .hint { color: var(--muted); font-size: 12.5px; }
     .timeline { display: flex; gap: 6px; margin: 8px 0 18px; height: 64px; }
     .section { flex: 1; background: #1f2230; border: 1px solid #2a2e40; border-radius: 10px;
@@ -50,6 +54,7 @@
 
     <div class="controls">
       <button id="play">▶ Play</button>
+      <button id="export" class="secondary">⬇ Exporter WAV</button>
       <span class="hint">Mets le son, monte le volume. Critère&nbsp;: est-ce que ça donne envie de bouger la tête&nbsp;?</span>
     </div>
 
@@ -70,6 +75,9 @@
 
   <!-- Tone.js (moteur Web Audio) — vendorisé dans le repo (pas de dépendance CDN) -->
   <script src="vendor/Tone.js"></script>
+  <!-- Le contrat (données) + le cœur pur (logique musicale), puis la couche audio -->
+  <script src="arrangement.js"></script>
+  <script src="core.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
