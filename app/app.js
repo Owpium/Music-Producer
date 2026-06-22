@@ -362,7 +362,23 @@ function stop() {
   playing = false;
 }
 
+// Badge de version : lit version.json (écrit au déploiement) pour confirmer
+// d'un coup d'œil que tu regardes bien la dernière build (anti-cache).
+async function showVersion() {
+  const el = document.getElementById("version");
+  if (!el) return;
+  try {
+    const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) throw new Error();
+    const v = await r.json();
+    el.textContent = `version : ${v.commit} · ${v.date}`;
+  } catch (_) {
+    el.textContent = "version : dev (local)";
+  }
+}
+
 window.addEventListener("DOMContentLoaded", () => {
+  showVersion();
   // métadonnées
   document.getElementById("title").textContent = ARRANGEMENT.title;
   document.getElementById("meta").textContent =

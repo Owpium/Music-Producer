@@ -1,0 +1,44 @@
+name: Deploy to GitHub Pages
+
+# Publie le dossier app/ sur une URL fixe à chaque push.
+# (Une seule action manuelle requise : Settings → Pages → Source = "GitHub Actions".)
+
+on:
+  push:
+    branches:
+      - main
+      - claude/determined-cannon-hr6x5d
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un seul déploiement à la fois.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Badge de version (anti-cache) : commit court + date, lu par app.js.
+      - name: Écrire version.json
+        run: |
+          printf '{"commit":"%s","date":"%s"}\n' \
+            "$(git rev-parse --short HEAD)" \
+            "$(date -u '+%Y-%m-%d %H:%M UTC')" > app/version.json
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app
+      - id: deployment
+        uses: actions/deploy-pages@v4
