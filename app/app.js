@@ -78,15 +78,15 @@ function buildGraph() {
 }
 
 /* --------------------------------------------------------------------------- déclenchement d'un événement --------------------------------------------------------------------------- */
-function duck(G, time) {
-  const beat = 60 / Tone.Transport.bpm.value;
+function duck(G, time, spb) {
+  const beat = spb * 4;
   const g = G.sidechain.gain;
   g.cancelScheduledValues(time);
   g.setValueAtTime(0.25, time);
   g.linearRampToValueAtTime(1.0, time + beat * 0.92);
 }
-function riserSweep(G, time, durBars) {
-  const dur = durBars * 4 * (60 / Tone.Transport.bpm.value);
+function riserSweep(G, time, durBars, spb) {
+  const dur = durBars * 16 * spb;
   const f = G.riserFilter.frequency;
   f.cancelScheduledValues(time);
   f.setValueAtTime(350, time);
@@ -95,7 +95,7 @@ function riserSweep(G, time, durBars) {
 }
 function triggerEvent(ev, time, G, inst, spb) {
   switch (ev.kind) {
-    case "kick": inst.kick.triggerAttackRelease("C1", "8n", time); duck(G, time); break;
+    case "kick": inst.kick.triggerAttackRelease("C1", "8n", time); duck(G, time, spb); break;
     case "clap": inst.clap.triggerAttackRelease("16n", time); break;
     case "hat":  inst.hat.triggerAttackRelease("32n", time); break;
     case "sub":  inst.sub.triggerAttackRelease(ev.note, ev.durSteps * spb * 0.95, time); break;
@@ -109,7 +109,7 @@ function triggerEvent(ev, time, G, inst, spb) {
       if (ev.name === "drop") G.impact.triggerAttackRelease(2, time);
       break;
     }
-    case "riser": riserSweep(G, time, ev.durBars); break;
+    case "riser": riserSweep(G, time, ev.durBars, spb); break;
   }
 }
 
@@ -155,26 +155,34 @@ async function exportWav(btn) {
   try {
     await Tone.start();
     const dur = data.durationSec + 2; // queue de réverb
-    const rendered = await Tone.Offline(async () => {
+    // IMPORTANT : en rendu hors-ligne, utiliser le transport DU CONTEXTE
+    // hors-ligne (ctx.transport), pas le transport global, sinon rien n'est joué.
+    const rendered = await Tone.Offline(async (ctx) => {
+      const transport = ctx.transport;
       const { G, inst } = buildGraph();
       await G.reverb.ready;
-      configureTransport();
+      transport.bpm.value = data.tempo;
+      transport.swing = data.swing;
+      transport.swingSubdivision = "16n";
       const spb = data.secondsPerStep;
       let step = 0;
-      Tone.Transport.scheduleRepeat((time) => {
+      transport.scheduleRepeat((time) => {
         if (step < data.totalSteps) {
           const evs = data.eventsByStep[step];
           if (evs) for (const ev of evs) triggerEvent(ev, time, G, inst, spb);
         }
         step++;
       }, "16n", 0);
-      Tone.Transport.start(0);
+      transport.start(0);
     }, dur);
     downloadBlob(audioBufferToWav(rendered.get()), "morceau.wav");
+    if (btn) {
+      btn.textContent = "✓ Exporté (dossier Téléchargements)";
+      setTimeout(() => { btn.textContent = "⬇ Exporter WAV"; btn.disabled = false; }, 2500);
+    }
   } catch (e) {
     console.error(e);
     alert("Échec de l'export : " + (e && e.message ? e.message : e));
-  } finally {
     if (btn) { btn.disabled = false; btn.textContent = "⬇ Exporter WAV"; }
   }
 }
