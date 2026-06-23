@@ -9,7 +9,8 @@
 
 const A = (typeof MPArrangement !== "undefined") ? MPArrangement : window.MPArrangement;
 const Core = (typeof MPCore !== "undefined") ? MPCore : window.MPCore;
-const data = Core.buildArrangement(A);
+let data = Core.buildArrangement(A);
+function rebuild() { data = Core.buildArrangement(A); } // après édition d'un pattern
 
 /* ---------------------------------------------------------------------------
    Graphe audio (instruments + bus). Reconstruit à l'identique en temps réel
@@ -22,8 +23,9 @@ function gainOf(name) {
 
 function buildGraph() {
   const limiter = new Tone.Limiter(-1).toDestination();
-  const drums = new Tone.Gain(1).connect(limiter);                       // jamais ducké
-  const musicalFilter = new Tone.Filter({ type: "lowpass", frequency: 16000, Q: 1 }).connect(limiter);
+  const master = new Tone.Gain(0.75).connect(limiter);                   // headroom anti-clipping
+  const drums = new Tone.Gain(1).connect(master);                        // jamais ducké
+  const musicalFilter = new Tone.Filter({ type: "lowpass", frequency: 16000, Q: 1 }).connect(master);
   const sidechain = new Tone.Gain(1).connect(musicalFilter);             // "respire" avec le kick
   const reverb = new Tone.Reverb({ decay: 3.5, wet: 0.32 }).connect(sidechain);
 
@@ -72,9 +74,21 @@ function buildGraph() {
   kick.volume.value = gainOf("kick"); clap.volume.value = gainOf("clap"); hat.volume.value = gainOf("hat");
   acid.volume.value = gainOf("acid"); sub.volume.value = gainOf("sub"); pad.volume.value = gainOf("pad"); lead.volume.value = gainOf("lead");
 
+  kick.volume.value = gainOf("kick") - 2; // un peu de marge pour le kick
+
   const inst = { kick, clap, hat, acid, sub, pad, lead };
-  const G = { limiter, drums, musicalFilter, sidechain, reverb, riser, riserFilter, impact };
+  const G = { limiter, master, drums, musicalFilter, sidechain, reverb, riser, riserFilter, impact };
   return { G, inst };
+}
+
+/* Mute / solo par couche (piloté par l'éditeur, lu en direct au déclenchement) */
+const muted = new Set();
+const soloed = new Set();
+const SOUND_KINDS = ["kick", "clap", "hat", "sub", "pad", "bass", "lead"];
+function audible(kind) {
+  if (!SOUND_KINDS.includes(kind)) return true;           // section/riser toujours
+  if (soloed.size > 0) return soloed.has(kind);
+  return !muted.has(kind);
 }
 
 /* --------------------------------------------------------------------------- déclenchement d'un événement --------------------------------------------------------------------------- */
@@ -94,6 +108,7 @@ function riserSweep(G, time, durBars, spb) {
   G.riser.triggerAttackRelease(dur, time);
 }
 function triggerEvent(ev, time, G, inst, spb) {
+  if (!audible(ev.kind)) return;
   switch (ev.kind) {
     case "kick": inst.kick.triggerAttackRelease("C1", "8n", time); duck(G, time, spb); break;
     case "clap": inst.clap.triggerAttackRelease("16n", time); break;
@@ -231,6 +246,78 @@ async function showVersion() {
   } catch (_) { el.textContent = "version : dev (local)"; }
 }
 
+/* --------------------------------------------------------------------------- éditeur en tuiles --------------------------------------------------------------------------- */
+const DRUM_ROLES = ["kick", "clap", "hat"];          // couches éditables en tuiles (v1)
+const ALL_LAYERS = ["kick", "clap", "hat", "bass", "sub", "pad", "lead"];
+let editSection = "drop";                            // section en cours d'édition
+
+function patternString(role, section) {
+  const layer = A.layers.find((l) => l.role === role);
+  const p = layer && layer.patterns ? layer.patterns[section] : null;
+  return typeof p === "string" ? p : ".".repeat(16);
+}
+function toggleStep(role, section, i) {
+  const layer = A.layers.find((l) => l.role === role);
+  if (!layer.patterns) layer.patterns = {};
+  const cur = (typeof layer.patterns[section] === "string" ? layer.patterns[section] : ".".repeat(16)).split("");
+  while (cur.length < 16) cur.push(".");
+  cur[i] = cur[i] === "x" ? "." : "x";
+  layer.patterns[section] = cur.join("");
+  rebuild();
+}
+
+function buildEditor() {
+  const tabs = document.getElementById("section-tabs");
+  const grid = document.getElementById("grid");
+  const layersBox = document.getElementById("layers");
+
+  // onglets de section
+  tabs.innerHTML = "";
+  A.sections.forEach((s) => {
+    const t = document.createElement("button");
+    t.className = "tab" + (s.name === editSection ? " active" : "");
+    t.textContent = s.name;
+    t.onclick = () => { editSection = s.name; buildEditor(); };
+    tabs.appendChild(t);
+  });
+
+  // grille de tuiles (couches de batterie × 16 pas)
+  grid.innerHTML = "";
+  DRUM_ROLES.forEach((role) => {
+    const row = document.createElement("div");
+    row.className = "grid-row";
+    const label = document.createElement("span");
+    label.className = "row-label";
+    label.textContent = role;
+    row.appendChild(label);
+    const pat = patternString(role, editSection);
+    for (let i = 0; i < 16; i++) {
+      const cell = document.createElement("button");
+      cell.className = "cell" + (pat[i] === "x" ? " on" : "") + (i % 4 === 0 ? " beat" : "");
+      cell.dataset.role = role; cell.dataset.i = i;
+      cell.onclick = () => { toggleStep(role, editSection, i); cell.classList.toggle("on"); };
+      row.appendChild(cell);
+    }
+    grid.appendChild(row);
+  });
+
+  // mute / solo par couche
+  layersBox.innerHTML = "";
+  ALL_LAYERS.forEach((role) => {
+    const item = document.createElement("div");
+    item.className = "layer";
+    const name = document.createElement("span"); name.textContent = role; name.className = "layer-name";
+    const m = document.createElement("button");
+    m.textContent = "M"; m.className = "mini" + (muted.has(role) ? " mute" : "");
+    m.title = "Mute"; m.onclick = () => { muted.has(role) ? muted.delete(role) : muted.add(role); m.classList.toggle("mute"); };
+    const s = document.createElement("button");
+    s.textContent = "S"; s.className = "mini" + (soloed.has(role) ? " solo" : "");
+    s.title = "Solo"; s.onclick = () => { soloed.has(role) ? soloed.delete(role) : soloed.add(role); s.classList.toggle("solo"); };
+    item.append(name, m, s);
+    layersBox.appendChild(item);
+  });
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   showVersion();
   document.getElementById("title").textContent = A.title;
@@ -242,6 +329,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const el = document.createElement("div");
     el.className = "section"; el.dataset.idx = idx; el.style.flex = String(s.len);
     el.innerHTML = `<span class="name">${s.name}</span><span class="bars">${s.bars} mes.</span>`;
+    el.onclick = () => { editSection = s.name; buildEditor(); };
     timeline.appendChild(el);
   });
 
@@ -254,13 +342,26 @@ window.addEventListener("DOMContentLoaded", () => {
   const expBtn = document.getElementById("export");
   if (expBtn) expBtn.addEventListener("click", () => exportWav(expBtn));
 
+  buildEditor();
+
   const energyFill = document.getElementById("energy-fill");
   const sectionEls = [...document.querySelectorAll(".section")];
+  let lastBeat = -1;
   function frame() {
     if (playing) {
-      const s = locateUI(currentStep % data.totalSteps);
+      const pos = currentStep % data.totalSteps;
+      const s = locateUI(pos);
       sectionEls.forEach((el) => el.classList.toggle("active", Number(el.dataset.idx) === data.sections.indexOf(s)));
       energyFill.style.width = (s.energy * 100) + "%";
+      // surligne le pas courant dans la grille si on édite la section jouée
+      if (s.name === editSection) {
+        const stepInBar = pos % 16;
+        if (stepInBar !== lastBeat) {
+          lastBeat = stepInBar;
+          document.querySelectorAll(".cell.playhead").forEach((c) => c.classList.remove("playhead"));
+          document.querySelectorAll('.cell[data-i="' + stepInBar + '"]').forEach((c) => c.classList.add("playhead"));
+        }
+      }
     }
     requestAnimationFrame(frame);
   }

@@ -45,6 +45,28 @@
     .foot { margin-top: 22px; font-size: 12px; color: #5d6170; line-height: 1.6; }
     code { background: #1f2230; padding: 1px 6px; border-radius: 5px; color: #b9bdd0; }
     #version { margin-top: 14px; font-size: 11px; color: #4a4e5c; font-family: ui-monospace, monospace; letter-spacing: .3px; }
+    .editor { margin-top: 22px; border-top: 1px solid #232634; padding-top: 18px; }
+    .editor-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .editor-head > span { font-size: 12px; color: var(--muted); }
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tab { cursor: pointer; border: 1px solid #2a2e40; background: #1f2230; color: var(--muted);
+      border-radius: 8px; padding: 5px 12px; font-size: 12.5px; text-transform: capitalize; }
+    .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .grid-row { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+    .row-label { width: 44px; font-size: 11.5px; color: var(--muted); text-transform: capitalize; flex: none; }
+    .cell { flex: 1; height: 30px; min-width: 0; border: 1px solid #2a2e40; background: #191c27;
+      border-radius: 5px; cursor: pointer; padding: 0; transition: background .08s, box-shadow .08s; }
+    .cell.beat { border-color: #3a3f55; }
+    .cell.on { background: linear-gradient(180deg, var(--accent2), #1aa57e); border-color: var(--accent2); }
+    .cell.playhead { box-shadow: 0 0 0 2px var(--accent) inset; }
+    .layers { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .layer { display: flex; align-items: center; gap: 5px; background: #1f2230; border: 1px solid #2a2e40;
+      border-radius: 8px; padding: 4px 6px 4px 10px; }
+    .layer-name { font-size: 11.5px; color: var(--muted); text-transform: capitalize; }
+    .mini { cursor: pointer; width: 22px; height: 22px; border-radius: 5px; border: 1px solid #2a2e40;
+      background: #14161f; color: #6b6f7e; font-size: 11px; font-weight: 700; padding: 0; }
+    .mini.mute { background: #ff3c5a; border-color: #ff3c5a; color: #fff; }
+    .mini.solo { background: var(--accent2); border-color: var(--accent2); color: #06281f; }
   </style>
 </head>
 <body>
@@ -63,6 +85,15 @@
     <div class="energy">
       <div class="label">Énergie de la section</div>
       <div class="bar"><div id="energy-fill"></div></div>
+    </div>
+
+    <div class="editor">
+      <div class="editor-head">
+        <span>Édite la section&nbsp;:</span>
+        <div id="section-tabs" class="tabs"></div>
+      </div>
+      <div id="grid"></div>
+      <div id="layers"></div>
     </div>
 
     <div class="foot">
